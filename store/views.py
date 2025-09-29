@@ -85,21 +85,34 @@ def submit_review(request, product_id):
     url = request.META.get('HTTP_REFERER')
     if request.method == 'POST':
         try:
-            reviews = ReviewRating.objects.get(user__id=request.user.id, product__id=product_id)
-            form = ReviewForm(request.POST, instance=reviews)
-            form.save()
-            messages.success(request, 'Thank you! Your review has been updated.')
+            # Try to get existing review
+            review = ReviewRating.objects.get(user__id=request.user.id, product__id=product_id)
+            form = ReviewForm(request.POST, instance=review)
+            if form.is_valid():
+                form.save()
+                messages.success(request, 'Thank you! Your review has been updated.')
+            else:
+                messages.error(request, 'Please correct the errors below.')
             return redirect(url)
         except ReviewRating.DoesNotExist:
+            # Create new review
             form = ReviewForm(request.POST)
             if form.is_valid():
-                data = ReviewRating()
-                data.subject = form.cleaned_data['subject']
-                data.rating = form.cleaned_data['rating']
-                data.review = form.cleaned_data['review']
-                data.ip = request.META.get('REMOTE_ADDR')
-                data.product_id = product_id
-                data.user_id = request.user.id
-                data.save()
-                messages.success(request, 'Thank you! Your review has been submitted.')
-                return redirect(url)
+                try:
+                    data = ReviewRating()
+                    data.subject = form.cleaned_data['subject']
+                    data.rating = form.cleaned_data['rating']
+                    data.review = form.cleaned_data['review']
+                    data.ip = request.META.get('REMOTE_ADDR')
+                    data.product_id = product_id
+                    data.user_id = request.user.id
+                    data.save()
+                    messages.success(request, 'Thank you! Your review has been submitted.')
+                except Exception as e:
+                    messages.error(request, 'An error occurred while submitting your review. Please try again.')
+            else:
+                messages.error(request, 'Please correct the errors below.')
+            return redirect(url)
+        except Exception as e:
+            messages.error(request, 'An error occurred while processing your review. Please try again.')
+            return redirect(url)
